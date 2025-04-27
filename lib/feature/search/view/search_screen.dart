@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:book_app/feature/favorite/cubit/favorite_cubit.dart';
+import 'package:book_app/feature/favorite/favorite.dart';
 import 'package:book_app/feature/search/bloc/books_list_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/widgets/widgets.dart';
+import '../../../repositories/books/books.dart';
 import '../widget/widget.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -59,24 +65,38 @@ class _SearchScreenState extends State<SearchScreen> {
             bottom: PreferredSize(
               preferredSize: Size.fromHeight(75),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SearchField(searchController: _searchController),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SearchField(searchController: _searchController),
+                    ),
+                    IconButton(
+                      onPressed: () => _navigateToFavorite(context),
+                      icon: Icon(Icons.favorite),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           BlocBuilder<BooksListBloc, BooksListState>(
             builder: (context, state) {
               if (state is BooksListInitial) {
-                return SliverToBoxAdapter(
-                  child: Info(title: 'Скорее начните искать любимые книги'),
-                );
+                return Info(title: 'Скорее начните искать любимые книги');
               }
               if (state is BooksListLoading) {
-                return SliverToBoxAdapter(child: Info());
+                return Info();
               }
               if (state is BooksListFailure) {
-                return SliverToBoxAdapter(
-                  child: Info(title: 'Ошибка: ${state.error}'),
+                return Info(title: 'Ошибка: ${state.error}');
+              }
+              if (state is BooksListEmpty) {
+                return Info(
+                  title: 'По запросу ${state.query} ничего не надено',
                 );
               }
               if (state is BooksListLoaded) {
@@ -93,18 +113,23 @@ class _SearchScreenState extends State<SearchScreen> {
                       );
                     }
                     final book = state.books[index];
-                    return BookTile(book: book);
+                    final favorite = state.favorite(book.title);
+                    return BookTile(book: book, isFavorite: favorite != null);
                   },
                 );
               }
 
-              return SliverToBoxAdapter(
-                child: Info(title: 'Скорее начните искать любимые книги'),
-              );
+              return Info(title: 'Ищите');
             },
           ),
         ],
       ),
     );
+  }
+
+  void _navigateToFavorite(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => FavoriteScreen()));
   }
 }
