@@ -10,23 +10,12 @@ class SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return TextField(
       controller: _searchController,
-      cursorColor: Colors.black,
+      cursorColor: theme.colorScheme.primary,
       decoration: InputDecoration(
         hintText: 'Поиск книг...',
-        hintStyle: TextStyle(color: Colors.grey),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: Colors.grey.withValues(alpha: 0.5),
-            width: 0.5,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.black, width: 1.5),
-        ),
       ),
     );
   }

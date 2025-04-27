@@ -1,27 +1,30 @@
 import 'dart:async';
 
+import 'package:book_app/core/core.dart';
+import 'package:book_app/repositories/favorite/favorite.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../../data/repository/books/books.dart';
+import '../../../repositories/books/books.dart';
 
 part 'books_list_event.dart';
 
 part 'books_list_state.dart';
 
 class BooksListBloc extends Bloc<BooksListEvent, BooksListState> {
-  BooksListBloc({required BooksRepositoryI booksRepository})
-    : _booksRepository = booksRepository,
-      super(BooksListInitial()) {
-    on<SearchBook>(
-      _onSearch,
-      transformer: debounceDroppable(Duration(milliseconds: 500)),
-    );
+  BooksListBloc({
+    required BooksRepositoryI booksRepository,
+    required FavoriteRepositoryI favoriteRepository,
+  }) : _booksRepository = booksRepository,
+       _favoriteRepository = favoriteRepository,
+       super(BooksListInitial()) {
+    on<SearchBook>(_onSearch, transformer: _debounceDroppable());
     on<LoadPage>(_onLoadPage);
   }
 
   final BooksRepositoryI _booksRepository;
+  final FavoriteRepositoryI _favoriteRepository;
   String _currentQuery = '';
   static const _limit = 20;
 
@@ -33,13 +36,28 @@ class BooksListBloc extends Bloc<BooksListEvent, BooksListState> {
       return;
     }
 
+    //Проверка добавлена потому, что иногда на отправку 1 символа OpenLibrary
+    // отдает не json, а HTML страницу.
+    if (_currentQuery.length < 2) {
+      emit(BooksListInitial());
+      return;
+    }
+
     emit(BooksListLoading());
 
     try {
       final result = await _booksRepository.fetchBooksList(_currentQuery, 1);
+      final favorites = await _favoriteRepository.getFavorites();
+
+      if (result.books.isEmpty) {
+        emit(BooksListEmpty(query: _currentQuery));
+        return;
+      }
+
       emit(
         BooksListLoaded(
           books: result.books,
+          favorites: favorites,
           currentPage: 1,
           hasReachedMax: result.books.length < _limit,
         ),
@@ -49,40 +67,36 @@ class BooksListBloc extends Bloc<BooksListEvent, BooksListState> {
     }
   }
 
-  FutureOr<void> _onLoadPage(
-    LoadPage event,
-    Emitter<BooksListState> emit,
-  ) async {
+  Future<void> _onLoadPage(LoadPage event, Emitter<BooksListState> emit) async {
     final currentState = state;
 
-    if (currentState is BooksListLoaded && !currentState.hasReachedMax) {
-      try {
-        final nextPage = currentState.currentPage + 1;
-        final result = await _booksRepository.fetchBooksList(
-          _currentQuery,
-          nextPage,
-        );
+    if (currentState is! BooksListLoaded || currentState.hasReachedMax) return;
 
-        final allBooks = List<Book>.from(currentState.books)
-          ..addAll(result.books);
+    try {
+      final nextPage = currentState.currentPage + 1;
+      final result = await _booksRepository.fetchBooksList(
+        _currentQuery,
+        nextPage,
+      );
 
-        emit(
-          currentState.copyWith(
-            books: allBooks,
-            currentPage: nextPage,
-            hasReachedMax: result.books.length < _limit,
-          ),
-        );
-      } catch (e) {
-        emit(BooksListFailure(error: e));
-      }
+      final allBooks = [...currentState.books, ...result.books];
+
+      emit(
+        currentState.copyWith(
+          books: allBooks,
+          currentPage: nextPage,
+          hasReachedMax: result.books.length < _limit,
+        ),
+      );
+    } catch (e) {
+      emit(BooksListFailure(error: e));
     }
   }
 
-  EventTransformer<SearchBook> debounceDroppable<SearchBook>(
-    Duration duration,
-  ) {
-    return (events, mapper) =>
-        events.debounceTime(duration).distinct().switchMap(mapper);
+  EventTransformer<SearchBook> _debounceDroppable<SearchBook>() {
+    return (events, mapper) => events
+        .debounceTime(Duration(milliseconds: 500))
+        .distinct()
+        .switchMap(mapper);
   }
 }

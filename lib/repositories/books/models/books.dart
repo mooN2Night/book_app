@@ -22,7 +22,7 @@ class Book {
   final int? image;
   final String title;
 
-  String get fullImage => 'https://covers.openlibrary.org/b/id/$image-M.jpg';
+  String get fullImage => 'https://covers.openlibrary.org/b/id/$image-L.jpg';
 
   Book({required this.authorName, required this.image, required this.title});
 

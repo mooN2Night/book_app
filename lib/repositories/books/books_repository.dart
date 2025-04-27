@@ -20,15 +20,13 @@ class BooksRepository implements BooksRepositoryI {
     });
     try {
       final response = await client.get(uri);
+
       if (response.statusCode != 200) {
+        debugPrint('response.body: ${response.body}');
         throw Exception('Ошибка загрузки списка книг');
       }
+
       final json = jsonDecode(response.body);
-      debugPrint('json: $json');
-      final a = Books.fromJson(json);
-      debugPrint('Books.fromJson(json): $a');
-
-
       return Books.fromJson(json);
     } catch (e) {
       throw Exception(e);
